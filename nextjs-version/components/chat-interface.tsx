@@ -1,117 +1,117 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState, useRef, useEffect } from "react"
-import { Send, Bot, User, WifiOff } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { updateChat, getApiKey, type Chat, type Message } from "@/lib/storage"
-import { streamText } from "ai"
-import { getProviderModel } from "@/lib/ai-providers"
-import ReactMarkdown from "react-markdown"
-import { CapacitorService } from "@/lib/capacitor"
-import { localAI } from "@/lib/local-ai"
+import { useState, useRef, useEffect } from "react";
+import { Send, Bot, User, WifiOff } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { updateChat, getApiKey, type Chat, type Message } from "@/lib/storage";
+import { LanguageModelV1, streamText } from "ai";
+import { getProviderModel } from "@/lib/ai-providers";
+import ReactMarkdown from "react-markdown";
+import { CapacitorService } from "@/lib/capacitor";
+import { localAI } from "@/lib/local-ai";
 
 interface ChatInterfaceProps {
-  chat: Chat
-  onUpdateChat: (chat: Chat) => void
+  chat: Chat;
+  onUpdateChat: (chat: Chat) => void;
 }
 
 export function ChatInterface({ chat, onUpdateChat }: ChatInterfaceProps) {
-  const [input, setInput] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [streamingMessage, setStreamingMessage] = useState("")
-  const [isOnline, setIsOnline] = useState(true)
-  const scrollAreaRef = useRef<HTMLDivElement>(null)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const [input, setInput] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [streamingMessage, setStreamingMessage] = useState("");
+  const [isOnline, setIsOnline] = useState(true);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (scrollAreaRef.current) {
-      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight
+      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
     }
-  }, [chat.messages, streamingMessage])
+  }, [chat.messages, streamingMessage]);
 
   useEffect(() => {
     // Check online status
-    const updateOnlineStatus = () => setIsOnline(navigator.onLine)
-    window.addEventListener("online", updateOnlineStatus)
-    window.addEventListener("offline", updateOnlineStatus)
+    const updateOnlineStatus = () => setIsOnline(navigator.onLine);
+    window.addEventListener("online", updateOnlineStatus);
+    window.addEventListener("offline", updateOnlineStatus);
 
     return () => {
-      window.removeEventListener("online", updateOnlineStatus)
-      window.removeEventListener("offline", updateOnlineStatus)
-    }
-  }, [])
+      window.removeEventListener("online", updateOnlineStatus);
+      window.removeEventListener("offline", updateOnlineStatus);
+    };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!input.trim() || isLoading) return
+    e.preventDefault();
+    if (!input.trim() || isLoading) return;
 
     // Check if we can proceed with the request
-    const isLocalModel = chat.provider === "local"
+    const isLocalModel = chat.provider === "local";
     if (!isLocalModel && !isOnline) {
-      alert("Internet connection required for online models. Use local models for offline chat.")
-      return
+      alert("Internet connection required for online models. Use local models for offline chat.");
+      return;
     }
 
     // Add haptic feedback for native apps
-    await CapacitorService.hapticFeedback()
+    await CapacitorService.hapticFeedback();
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
       content: input.trim(),
       timestamp: new Date(),
-    }
+    };
 
     const updatedChat = {
       ...chat,
       messages: [...chat.messages, userMessage],
       updatedAt: new Date(),
-    }
+    };
 
-    onUpdateChat(updatedChat)
-    updateChat(updatedChat)
-    setInput("")
-    setIsLoading(true)
-    setStreamingMessage("")
+    onUpdateChat(updatedChat);
+    updateChat(updatedChat);
+    setInput("");
+    setIsLoading(true);
+    setStreamingMessage("");
 
     try {
       if (isLocalModel) {
         // Handle local model chat
-        await handleLocalChat(updatedChat)
+        await handleLocalChat(updatedChat);
       } else {
         // Handle online model chat
-        await handleOnlineChat(updatedChat)
+        await handleOnlineChat(updatedChat);
       }
     } catch (error) {
-      console.error("Error:", error)
-      alert("Error sending message. Please try again.")
+      console.error("Error:", error);
+      alert("Error sending message. Please try again.");
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const handleLocalChat = async (updatedChat: Chat) => {
     try {
       // Load the model if not already loaded
       if (!localAI.isModelLoaded(chat.model)) {
-        await localAI.loadModel(chat.model)
+        await localAI.loadModel(chat.model);
       }
 
       const messages = updatedChat.messages.map((msg) => ({
         role: msg.role as "user" | "assistant",
         content: msg.content,
-      }))
+      }));
 
-      const stream = await localAI.chat(messages)
-      let fullResponse = ""
+      const stream = await localAI.chat(messages);
+      let fullResponse = "";
 
       for await (const delta of stream) {
-        fullResponse += delta
-        setStreamingMessage(fullResponse)
+        fullResponse += delta;
+        setStreamingMessage(fullResponse);
       }
 
       const assistantMessage: Message = {
@@ -119,52 +119,51 @@ export function ChatInterface({ chat, onUpdateChat }: ChatInterfaceProps) {
         role: "assistant",
         content: fullResponse,
         timestamp: new Date(),
-      }
+      };
 
       const finalChat = {
         ...updatedChat,
         messages: [...updatedChat.messages, assistantMessage],
         updatedAt: new Date(),
-      }
+      };
 
       // Update title if it's the first exchange
       if (finalChat.messages.length === 2) {
-        finalChat.title =
-          updatedChat.messages[0].content.slice(0, 50) + (updatedChat.messages[0].content.length > 50 ? "..." : "")
+        finalChat.title = updatedChat.messages[0].content.slice(0, 50) + (updatedChat.messages[0].content.length > 50 ? "..." : "");
       }
 
-      onUpdateChat(finalChat)
-      updateChat(finalChat)
-      setStreamingMessage("")
+      onUpdateChat(finalChat);
+      updateChat(finalChat);
+      setStreamingMessage("");
     } catch (error) {
-      console.error("Error with local model:", error)
-      throw error
+      console.error("Error with local model:", error);
+      throw error;
     }
-  }
+  };
 
   const handleOnlineChat = async (updatedChat: Chat) => {
-    const apiKey = getApiKey(chat.provider)
+    const apiKey = getApiKey(chat.provider);
     if (!apiKey) {
-      alert(`Please add your ${chat.provider} API key in settings`)
-      return
+      alert(`Please add your ${chat.provider} API key in settings`);
+      return;
     }
 
     try {
-      const model = getProviderModel(chat.provider, chat.model, apiKey)
+      const model = getProviderModel(chat.provider, chat.model, apiKey);
 
       const result = await streamText({
-        model,
+        model: model as LanguageModelV1,
         messages: updatedChat.messages.map((msg) => ({
           role: msg.role,
           content: msg.content,
         })),
-      })
+      });
 
-      let fullResponse = ""
+      let fullResponse = "";
 
       for await (const delta of result.textStream) {
-        fullResponse += delta
-        setStreamingMessage(fullResponse)
+        fullResponse += delta;
+        setStreamingMessage(fullResponse);
       }
 
       const assistantMessage: Message = {
@@ -172,38 +171,37 @@ export function ChatInterface({ chat, onUpdateChat }: ChatInterfaceProps) {
         role: "assistant",
         content: fullResponse,
         timestamp: new Date(),
-      }
+      };
 
       const finalChat = {
         ...updatedChat,
         messages: [...updatedChat.messages, assistantMessage],
         updatedAt: new Date(),
-      }
+      };
 
       // Update title if it's the first exchange
       if (finalChat.messages.length === 2) {
-        finalChat.title =
-          updatedChat.messages[0].content.slice(0, 50) + (updatedChat.messages[0].content.length > 50 ? "..." : "")
+        finalChat.title = updatedChat.messages[0].content.slice(0, 50) + (updatedChat.messages[0].content.length > 50 ? "..." : "");
       }
 
-      onUpdateChat(finalChat)
-      updateChat(finalChat)
-      setStreamingMessage("")
+      onUpdateChat(finalChat);
+      updateChat(finalChat);
+      setStreamingMessage("");
     } catch (error) {
-      console.error("Error with online model:", error)
-      throw error
+      console.error("Error with online model:", error);
+      throw error;
     }
-  }
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault()
-      handleSubmit(e)
+      e.preventDefault();
+      handleSubmit(e);
     }
-  }
+  };
 
-  const isLocalModel = chat.provider === "local"
-  const canSendMessage = isLocalModel || isOnline
+  const isLocalModel = chat.provider === "local";
+  const canSendMessage = isLocalModel || isOnline;
 
   return (
     <div className="flex flex-col h-full">
@@ -224,15 +222,11 @@ export function ChatInterface({ chat, onUpdateChat }: ChatInterfaceProps) {
 
               <div
                 className={`max-w-[80%] rounded-2xl px-4 py-2 ${
-                  message.role === "user"
-                    ? "bg-blue-500 text-white"
-                    : "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white"
+                  message.role === "user" ? "bg-blue-500 text-white" : "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white"
                 }`}
               >
                 {message.role === "assistant" ? (
-                  <ReactMarkdown className="prose prose-sm dark:prose-invert max-w-none">
-                    {message.content}
-                  </ReactMarkdown>
+                  <ReactMarkdown>{message.content}</ReactMarkdown>
                 ) : (
                   <p className="whitespace-pre-wrap">{message.content}</p>
                 )}
@@ -257,12 +251,8 @@ export function ChatInterface({ chat, onUpdateChat }: ChatInterfaceProps) {
                 <Bot className="w-4 h-4 text-white" />
               </div>
               <div className="max-w-[80%] rounded-2xl px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white">
-                <ReactMarkdown className="prose prose-sm dark:prose-invert max-w-none">
-                  {streamingMessage}
-                </ReactMarkdown>
-                <div
-                  className={`inline-block w-2 h-4 animate-pulse ml-1 ${isLocalModel ? "bg-green-500" : "bg-blue-500"}`}
-                />
+                <ReactMarkdown>{streamingMessage}</ReactMarkdown>
+                <div className={`inline-block w-2 h-4 animate-pulse ml-1 ${isLocalModel ? "bg-green-500" : "bg-blue-500"}`} />
               </div>
             </div>
           )}
@@ -314,17 +304,12 @@ export function ChatInterface({ chat, onUpdateChat }: ChatInterfaceProps) {
                 disabled={isLoading || !canSendMessage}
               />
             </div>
-            <Button
-              type="submit"
-              size="icon"
-              disabled={!input.trim() || isLoading || !canSendMessage}
-              className="h-11 w-11 rounded-full"
-            >
+            <Button type="submit" size="icon" disabled={!input.trim() || isLoading || !canSendMessage} className="h-11 w-11 rounded-full">
               <Send className="w-4 h-4" />
             </Button>
           </div>
         </form>
       </div>
     </div>
-  )
+  );
 }

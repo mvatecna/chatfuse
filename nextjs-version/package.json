@@ -6,7 +6,9 @@
     "build": "next build",
     "dev": "next dev",
     "lint": "next lint",
-    "start": "next start"
+    "start": "next start",
+    "dev:ios": "npx cap run ios --live-reload",
+    "dev:android": "npx cap run android --live-reload"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "latest",
@@ -19,6 +21,7 @@
     "@capacitor/core": "latest",
     "@capacitor/device": "latest",
     "@capacitor/haptics": "latest",
+    "@capacitor/ios": "^7.4.0",
     "@capacitor/keyboard": "latest",
     "@capacitor/share": "latest",
     "@capacitor/splash-screen": "latest",
